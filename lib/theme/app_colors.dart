@@ -1,36 +1,39 @@
 import 'package:flutter/material.dart';
 
-/// Cheers colour system — a warm, dusk-lit palette that reads well
-/// behind frosted-glass surfaces.
+/// Cheers colour system — warm cream base with amber accents.
 class AppColors {
   AppColors._();
 
-  // Base gradient — deep night sky sliding into warm coral horizon
-  static const Color bgDeep = Color(0xFF0B0B1E);
-  static const Color bgMid = Color(0xFF321B4E);
-  static const Color bgWarm = Color(0xFFE8735A);
-  static const Color bgHighlight = Color(0xFFFFB27A);
+  // Base gradient — soft sunrise cream into warm blush
+  static const Color bgDeep = Color(0xFFFFFAF6);
+  static const Color bgMid = Color(0xFFFFEFE4);
+  static const Color bgWarm = Color(0xFFFFD9C2);
+  static const Color bgHighlight = Color(0xFFFFB89A);
+  static const Color bgSurface = Color(0xFFFFFFFF);
 
   // Accent — warm amber "cheers"
-  static const Color accent = Color(0xFFFFB86B);
+  static const Color accent = Color(0xFFE8952E);
   static const Color accentSoft = Color(0xFFFFD8A8);
 
   // Category colours (POI markers)
-  static const Color catAccommodation = Color(0xFF7C5CFF); // violet
-  static const Color catDining = Color(0xFFFF6B8A); // rose
-  static const Color catSightseeing = Color(0xFF4FD1C5); // teal
-  static const Color catNightlife = Color(0xFFFFB86B); // amber
+  static const Color catAccommodation = Color(0xFF7C5CFF);
+  static const Color catDining = Color(0xFFFF6B8A);
+  static const Color catSightseeing = Color(0xFF4FD1C5);
+  static const Color catNightlife = Color(0xFFE8952E);
 
   // Text
-  static const Color textPrimary = Color(0xFFFFFFFF);
-  static const Color textSecondary = Color(0xCCFFFFFF);
-  static const Color textMuted = Color(0x99FFFFFF);
+  static const Color textPrimary = Color(0xFF1C1528);
+  static const Color textSecondary = Color(0xB31C1528);
+  static const Color textMuted = Color(0x801C1528);
 
-  // Glass
-  static const Color glassFill = Color(0x1FFFFFFF); // ~12% white
-  static const Color glassFillStrong = Color(0x33FFFFFF); // ~20% white
-  static const Color glassBorder = Color(0x40FFFFFF); // ~25% white
-  static const Color glassShadow = Color(0x33000000);
+  // Text/icons on accent gradients
+  static const Color onAccent = Color(0xFFFFFFFF);
+
+  // Glass — dark tint on light surfaces
+  static const Color glassFill = Color(0x141C1528);
+  static const Color glassFillStrong = Color(0x261C1528);
+  static const Color glassBorder = Color(0x331C1528);
+  static const Color glassShadow = Color(0x1A000000);
 
   static const LinearGradient background = LinearGradient(
     begin: Alignment.topLeft,
@@ -42,6 +45,6 @@ class AppColors {
   static const LinearGradient accentGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFFFB86B), Color(0xFFFF6B8A)],
+    colors: [Color(0xFFE8952E), Color(0xFFFF6B8A)],
   );
 }

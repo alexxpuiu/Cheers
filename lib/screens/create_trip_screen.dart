@@ -51,13 +51,12 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
+            colorScheme: ColorScheme.light(
               primary: AppColors.accent,
-              onPrimary: AppColors.bgDeep,
-              surface: Color(0xFF231038),
-              onSurface: Colors.white,
+              onPrimary: AppColors.onAccent,
+              surface: AppColors.bgSurface,
+              onSurface: AppColors.textPrimary,
             ),
-            dialogBackgroundColor: const Color(0xFF1B0E30),
           ),
           child: child!,
         );

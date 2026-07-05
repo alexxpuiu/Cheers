@@ -6,22 +6,22 @@
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="Cheers — collaborative trip planner.">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Cheers">
-  <meta name="theme-color" content="#0B0B1E">
+  <meta name="theme-color" content="#FFFAF6">
   <link rel="manifest" href="manifest.json">
   <title>Cheers</title>
   <style>
-    html, body { margin: 0; padding: 0; background: #0B0B1E; height: 100%; }
+    html, body { margin: 0; padding: 0; background: #FFFAF6; height: 100%; }
     #loader {
       position: fixed; inset: 0; display: flex; align-items: center;
-      justify-content: center; color: #FFB86B; font-family: -apple-system, system-ui, sans-serif;
+      justify-content: center; color: #E8952E; font-family: -apple-system, system-ui, sans-serif;
       font-size: 14px; letter-spacing: 0.3px;
-      background: linear-gradient(135deg, #0B0B1E, #321B4E 55%, #E8735A);
+      background: linear-gradient(135deg, #FFFAF6, #FFEFE4 55%, #FFD9C2);
     }
     #loader::before {
       content: ''; width: 40px; height: 40px; border-radius: 50%;
-      border: 2px solid rgba(255,255,255,0.15); border-top-color: #FFB86B;
+      border: 2px solid rgba(28,21,40,0.12); border-top-color: #E8952E;
       animation: spin 0.9s linear infinite; margin-right: 12px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -29,6 +29,7 @@
 </head>
 <body>
   <div id="loader">Pouring the drinks…</div>
+  <script src="token.js"></script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

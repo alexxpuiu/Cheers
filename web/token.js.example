@@ -1,0 +1,8 @@
+// Copy this file to token.js and paste your Mapbox PUBLIC token (pk.…).
+// token.js is gitignored — never commit real keys.
+//
+//   cp web/token.js.example web/token.js
+//
+// On Netlify / CI, generate token.js at build time instead:
+//   echo "window.MAPBOX_ACCESS_TOKEN='$MAPBOX_ACCESS_TOKEN';" > build/web/token.js
+window.MAPBOX_ACCESS_TOKEN = 'pk.YOUR_TOKEN_HERE';

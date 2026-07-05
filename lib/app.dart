@@ -22,7 +22,7 @@ class CheersApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'Cheers',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark,
+      theme: AppTheme.light,
       routerConfig: router,
       builder: (context, child) => AuroraBackground(child: child!),
     );

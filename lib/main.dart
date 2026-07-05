@@ -5,6 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
+import 'config/mapbox_config.dart';
 import 'services/supabase_service.dart';
 
 /// Mapbox **public** access token.
@@ -36,13 +37,14 @@ Future<void> main() async {
   kMapboxAccessToken = _mapboxTokenFromDefine.isNotEmpty
       ? _mapboxTokenFromDefine
       : (dotenv.maybeGet('MAPBOX_ACCESS_TOKEN') ?? '');
+  initMapboxToken(kMapboxAccessToken);
 
   await SupabaseService.init();
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
+      statusBarIconBrightness: Brightness.dark,
       systemNavigationBarColor: Colors.transparent,
     ),
   );

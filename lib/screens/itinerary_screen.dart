@@ -301,7 +301,7 @@ class _StopRow extends StatelessWidget {
                 Container(
                   width: 2,
                   height: 8,
-                  color: isFirst ? Colors.transparent : Colors.white.withValues(alpha: 0.2),
+                  color: isFirst ? Colors.transparent : AppColors.textPrimary.withValues(alpha: 0.12),
                 ),
                 Container(
                   width: 34,
@@ -328,7 +328,7 @@ class _StopRow extends StatelessWidget {
                     width: 2,
                     color: isLast
                         ? Colors.transparent
-                        : Colors.white.withValues(alpha: 0.2),
+                        : AppColors.textPrimary.withValues(alpha: 0.12),
                   ),
                 ),
               ],
@@ -360,7 +360,7 @@ class _StopRow extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.15),
+                            color: AppColors.textPrimary.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(100),
                           ),
                           child: Text(
@@ -448,12 +448,12 @@ class _GeneratingCard extends StatelessWidget {
                 ],
               ),
               child: const Icon(Icons.auto_awesome_rounded,
-                  size: 26, color: AppColors.bgDeep),
+                  size: 26, color: AppColors.onAccent),
             )
                 .animate(onPlay: (c) => c.repeat())
                 .rotate(duration: 3.seconds)
                 .then()
-                .shimmer(color: Colors.white.withValues(alpha: 0.4)),
+                .shimmer(color: AppColors.onAccent.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
             const Text('Planning your days…',
                 style:

@@ -5,12 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 
-import '../main.dart' show kMapboxAccessToken;
+import '../config/mapbox_config.dart';
 import '../models/poi.dart';
 import '../providers/poi_providers.dart';
 import '../providers/trip_providers.dart';
 import '../theme/app_colors.dart';
 import '../widgets/glass.dart';
+import '../widgets/map_panel.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key, required this.tripId});
@@ -40,118 +41,106 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       backgroundColor: AppColors.bgDeep,
       body: Stack(
         children: [
-          // Opaque backdrop so the aurora from the app-wide background never
-          // bleeds through the map area (even for tiles that haven't loaded).
-          const Positioned.fill(
-            child: ColoredBox(color: AppColors.bgDeep),
-          ),
+          // Opaque fill behind tiles so aurora never bleeds through gaps.
           Positioned.fill(
-            child: _buildMap(pois: pois, bucketList: bucketList),
-          ),
-
-          // Subtle vignette so the top/bottom UI reads clearly on any map.
-          Positioned.fill(
-            child: IgnorePointer(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      AppColors.bgDeep.withValues(alpha: 0.55),
-                      Colors.transparent,
-                      AppColors.bgDeep.withValues(alpha: 0.75),
-                    ],
-                    stops: const [0, 0.25, 1],
-                  ),
-                ),
-              ),
+            child: ColoredBox(
+              color: AppColors.bgDeep,
+              child: _buildMap(pois: pois, bucketList: bucketList),
             ),
           ),
 
-          // Top bar
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Row(
-                children: [
-                  _CircleIcon(
-                    icon: Icons.arrow_back_rounded,
-                    onTap: () => context.go('/'),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: GlassContainer(
-                      radius: 100,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.explore_rounded,
-                              size: 18, color: AppColors.textPrimary),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+          // Top chrome — single min-height column so overlays never span full screen.
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: Row(
+                      children: [
+                        _CircleIcon(
+                          icon: Icons.arrow_back_rounded,
+                          onTap: () => context.go('/'),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: MapPanel(
+                            radius: 100,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                            child: Row(
                               children: [
-                                Text(trip.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700)),
-                                Text('${trip.city} · ${trip.days} days',
-                                    style: TextStyle(
-                                        fontSize: 11,
-                                        color: AppColors.textMuted)),
+                                const Icon(Icons.explore_rounded,
+                                    size: 18, color: AppColors.textPrimary),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(trip.name,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700)),
+                                      Text('${trip.city} · ${trip.days} days',
+                                          style: TextStyle(
+                                              fontSize: 11,
+                                              color: AppColors.textMuted)),
+                                    ],
+                                  ),
+                                ),
                               ],
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 12),
+                        _CircleIcon(
+                          icon: _showFilters
+                              ? Icons.tune_rounded
+                              : Icons.tune_outlined,
+                          onTap: () =>
+                              setState(() => _showFilters = !_showFilters),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  _CircleIcon(
-                    icon: _showFilters
-                        ? Icons.tune_rounded
-                        : Icons.tune_outlined,
-                    onTap: () =>
-                        setState(() => _showFilters = !_showFilters),
+                ),
+                if (_showFilters)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: SizedBox(
+                      height: 48,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        physics: const BouncingScrollPhysics(),
+                        children: [
+                          for (final c in PoiCategory.values)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: _CategoryChip(
+                                category: c,
+                                selected: filters.contains(c),
+                                onTap: () => ref
+                                    .read(categoryFilterProvider.notifier)
+                                    .toggle(c),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ).animate().fadeIn(duration: 260.ms).slideY(begin: -0.4),
                   ),
-                ],
-              ),
+              ],
             ),
           ),
-
-          // Category filter chips
-          if (_showFilters)
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 72),
-                child: SizedBox(
-                  height: 48,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    physics: const BouncingScrollPhysics(),
-                    children: [
-                      for (final c in PoiCategory.values)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: _CategoryChip(
-                            category: c,
-                            selected: filters.contains(c),
-                            onTap: () => ref
-                                .read(categoryFilterProvider.notifier)
-                                .toggle(c),
-                          ),
-                        ),
-                    ],
-                  ),
-                ).animate().fadeIn(duration: 260.ms).slideY(begin: -0.4),
-              ),
-            ),
 
           // Bucket-list bottom sheet
           _BucketSheet(
@@ -199,7 +188,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     required List<Poi> pois,
     required List<String> bucketList,
   }) {
-    if (kMapboxAccessToken.isEmpty) {
+    if (!hasMapboxToken) {
       return _FallbackMapBackdrop(
         pois: pois,
         selectedId: _selectedPoiId,
@@ -209,19 +198,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
 
     final bucket = bucketList.toSet();
-    // Mapbox raster tiles — style: dark-v11 @2x for retina.
-    // We use the Mapbox Static Tiles API which works over standard HTTP
-    // and only requires the public `pk.…` token.
-    final tileUrl =
-        'https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/512/{z}/{x}/{y}@2x'
-        '?access_token=$kMapboxAccessToken';
+    final tileUrl = mapboxTileUrl('streets-v12');
 
     return FlutterMap(
       options: MapOptions(
         initialCenter: const LatLng(BarcelonaCenter.lat, BarcelonaCenter.lng),
         initialZoom: 12.6,
         minZoom: 3,
-        maxZoom: 18,
+        maxZoom: 22,
         interactionOptions: const InteractionOptions(
           flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
         ),
@@ -230,10 +214,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       children: [
         TileLayer(
           urlTemplate: tileUrl,
-          tileSize: 512,
-          zoomOffset: -1,
-          retinaMode: false,
-          userAgentPackageName: 'com.cheers.app',
+          maxNativeZoom: 22,
+          userAgentPackageName: 'com.cheers.om',
         ),
         MarkerLayer(
           markers: [
@@ -329,11 +311,10 @@ class _CategoryChip extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOutCubic,
-      child: GlassContainer(
+      child: MapPanel(
         radius: 100,
         onTap: onTap,
-        opacity: selected ? 0.28 : 0.12,
-        borderOpacity: selected ? 0.55 : 0.22,
+        borderOpacity: selected ? 0.35 : 0.15,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -377,7 +358,7 @@ class _CircleIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GlassContainer(
+    return MapPanel(
       radius: 100,
       padding: const EdgeInsets.all(12),
       onTap: onTap,
@@ -410,18 +391,16 @@ class _BucketSheet extends ConsumerWidget {
     final anchor = trip.anchorPoiId;
 
     return Positioned(
-      left: 0,
-      right: 0,
+      left: 12,
+      right: 12,
       bottom: 0,
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-          child: GlassContainer(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: MapPanel(
             radius: 30,
             padding: EdgeInsets.zero,
-            opacity: 0.16,
-            borderOpacity: 0.3,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -430,7 +409,7 @@ class _BucketSheet extends ConsumerWidget {
                   width: 38,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.35),
+                    color: AppColors.textPrimary.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -441,9 +420,8 @@ class _BucketSheet extends ConsumerWidget {
                       Text('Bucket list',
                           style: Theme.of(context).textTheme.headlineSmall),
                       const SizedBox(width: 8),
-                      GlassContainer(
+                      MapPanel(
                         radius: 100,
-                        opacity: 0.18,
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
                         child: Text('${items.length}',
@@ -466,7 +444,7 @@ class _BucketSheet extends ConsumerWidget {
                           )
                           .shimmer(
                             duration: 2200.ms,
-                            color: Colors.white.withValues(alpha: 0.35),
+                            color: AppColors.textPrimary.withValues(alpha: 0.2),
                           ),
                     ],
                   ),
@@ -549,21 +527,18 @@ class _BucketTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: 168,
-      child: GlassContainer(
+      child: MapPanel(
         radius: 20,
         onTap: onTap,
         padding: const EdgeInsets.all(12),
-        gradient: isAnchor
-            ? LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppColors.accent.withValues(alpha: 0.35),
-                  AppColors.catDining.withValues(alpha: 0.20),
-                ],
-              )
-            : null,
         borderOpacity: isAnchor ? 0.6 : 0.28,
+        color: isAnchor
+            ? Color.lerp(
+                AppColors.bgSurface,
+                AppColors.accent,
+                0.18,
+              )!
+            : null,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -643,9 +618,11 @@ class _MicroAction extends StatelessWidget {
         width: 22,
         height: 22,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.14),
+          color: AppColors.textPrimary.withValues(alpha: 0.08),
           shape: BoxShape.circle,
-          border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+          border: Border.all(
+            color: AppColors.textPrimary.withValues(alpha: 0.15),
+          ),
         ),
         alignment: Alignment.center,
         child: Icon(icon, size: 13, color: AppColors.textPrimary),
@@ -672,7 +649,7 @@ class _PoiDetailCard extends ConsumerWidget {
     final inBucket = trip.bucketList.contains(poi.id);
     final isAnchor = trip.anchorPoiId == poi.id;
 
-    return GlassContainer(
+    return MapPanel(
       key: ValueKey('poi-${poi.id}'),
       radius: 24,
       padding: const EdgeInsets.all(16),
@@ -831,12 +808,12 @@ class _GridPainter extends CustomPainter {
       ..shader = const RadialGradient(
         center: Alignment.center,
         radius: 1.2,
-        colors: [Color(0xFF23113D), Color(0xFF0B0B1E)],
+        colors: [Color(0xFFFFEFE4), AppColors.bgDeep],
       ).createShader(Offset.zero & size);
     canvas.drawRect(Offset.zero & size, bg);
 
     final grid = Paint()
-      ..color = Colors.white.withValues(alpha: 0.05)
+      ..color = AppColors.textPrimary.withValues(alpha: 0.06)
       ..strokeWidth = 1;
     const step = 44.0;
     for (double x = 0; x < size.width; x += step) {

@@ -47,3 +47,4 @@ android/app/release/
 # Web
 web/main.dart.js
 web/main.dart.js.map
+web/token.js

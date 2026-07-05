@@ -50,7 +50,7 @@ class _AuroraBackgroundState extends State<AuroraBackground>
               left: 120 + math.sin(t) * 60,
               top: 80 + math.cos(t * 0.7) * 40,
               child: _Blob(
-                color: const Color(0xFF7C5CFF).withValues(alpha: 0.55),
+                color: const Color(0xFF7C5CFF).withValues(alpha: 0.22),
                 size: 360,
               ),
             ),
@@ -58,7 +58,7 @@ class _AuroraBackgroundState extends State<AuroraBackground>
               right: -60 + math.cos(t * 0.9) * 40,
               top: 220 + math.sin(t * 1.1) * 60,
               child: _Blob(
-                color: const Color(0xFFFF6B8A).withValues(alpha: 0.45),
+                color: const Color(0xFFFF6B8A).withValues(alpha: 0.18),
                 size: 320,
               ),
             ),
@@ -66,7 +66,7 @@ class _AuroraBackgroundState extends State<AuroraBackground>
               left: -40 + math.sin(t * 1.2) * 30,
               bottom: 60 + math.cos(t) * 40,
               child: _Blob(
-                color: const Color(0xFFFFB86B).withValues(alpha: 0.35),
+                color: const Color(0xFFE8952E).withValues(alpha: 0.20),
                 size: 280,
               ),
             ),

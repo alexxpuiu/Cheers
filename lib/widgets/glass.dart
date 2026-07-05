@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
@@ -34,7 +35,10 @@ class GlassContainer extends StatelessWidget {
     final content = ClipRRect(
       borderRadius: borderRadius,
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+        filter: ImageFilter.blur(
+          sigmaX: kIsWeb ? 0.0 : blur,
+          sigmaY: kIsWeb ? 0.0 : blur,
+        ),
         child: Container(
           decoration: BoxDecoration(
             borderRadius: borderRadius,
@@ -43,12 +47,12 @@ class GlassContainer extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Colors.white.withValues(alpha: opacity + 0.06),
-                    Colors.white.withValues(alpha: opacity),
+                    AppColors.textPrimary.withValues(alpha: opacity + 0.04),
+                    AppColors.textPrimary.withValues(alpha: opacity + 0.02),
                   ],
                 ),
             border: Border.all(
-              color: Colors.white.withValues(alpha: borderOpacity),
+              color: AppColors.textPrimary.withValues(alpha: borderOpacity * 0.35),
               width: 1,
             ),
           ),
@@ -124,7 +128,7 @@ class GlassButton extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         if (icon != null) ...[
-          Icon(icon, size: dense ? 16 : 18, color: primary ? AppColors.bgDeep : AppColors.textPrimary),
+          Icon(icon, size: dense ? 16 : 18, color: primary ? AppColors.onAccent : AppColors.textPrimary),
           const SizedBox(width: 8),
         ],
         Text(
@@ -132,7 +136,7 @@ class GlassButton extends StatelessWidget {
           style: TextStyle(
             fontSize: dense ? 13 : 15,
             fontWeight: FontWeight.w600,
-            color: primary ? AppColors.bgDeep : AppColors.textPrimary,
+            color: primary ? AppColors.onAccent : AppColors.textPrimary,
             letterSpacing: 0.1,
           ),
         ),

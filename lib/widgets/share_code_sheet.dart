@@ -45,7 +45,7 @@ class _ShareCodeSheet extends StatelessWidget {
                   width: 38,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.35),
+                    color: AppColors.textPrimary.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -62,7 +62,7 @@ class _ShareCodeSheet extends StatelessWidget {
                     ),
                     alignment: Alignment.center,
                     child: const Icon(Icons.groups_2_rounded,
-                        color: AppColors.bgDeep, size: 22),
+                        color: AppColors.onAccent, size: 22),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -158,7 +158,7 @@ class _CodeDisplay extends StatelessWidget {
           ],
         ),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.35),
+          color: AppColors.textPrimary.withValues(alpha: 0.12),
           width: 1,
         ),
       ),

@@ -7,8 +7,8 @@ import 'app_colors.dart';
 class AppTheme {
   AppTheme._();
 
-  static ThemeData get dark {
-    final base = ThemeData.dark(useMaterial3: true);
+  static ThemeData get light {
+    final base = ThemeData.light(useMaterial3: true);
     final textTheme = GoogleFonts.interTextTheme(base.textTheme).apply(
       bodyColor: AppColors.textPrimary,
       displayColor: AppColors.textPrimary,
@@ -19,8 +19,9 @@ class AppTheme {
       colorScheme: base.colorScheme.copyWith(
         primary: AppColors.accent,
         secondary: AppColors.accentSoft,
-        surface: Colors.transparent,
-        onPrimary: AppColors.bgDeep,
+        surface: AppColors.bgSurface,
+        onPrimary: AppColors.onAccent,
+        onSurface: AppColors.textPrimary,
       ),
       textTheme: textTheme.copyWith(
         displayLarge: GoogleFonts.playfairDisplay(

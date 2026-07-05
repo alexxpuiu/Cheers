@@ -146,7 +146,7 @@ class _AvatarPill extends ConsumerWidget {
         final confirm = await showDialog<bool>(
           context: context,
           builder: (_) => AlertDialog(
-            backgroundColor: const Color(0xFF1B0E30),
+            backgroundColor: AppColors.bgSurface,
             title: const Text('Sign out?'),
             content: Text('You\'re signed in as $label.'),
             actions: [
@@ -179,7 +179,7 @@ class _AvatarPill extends ConsumerWidget {
               initial,
               style: const TextStyle(
                 fontWeight: FontWeight.w700,
-                color: AppColors.bgDeep,
+                color: AppColors.onAccent,
               ),
             ),
           ),
