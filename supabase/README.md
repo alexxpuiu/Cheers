@@ -32,6 +32,8 @@ Apply in filename order. Each is idempotent — re-runs are safe.
 | `20260705140000_create_trip_rpc.sql` | `create_trip` `SECURITY DEFINER` RPC + defensive re-create of `trips` policies (works around partial-apply gaps in the init) |
 | `20260705150000_bucket_list_sync.sql`| Retypes `bucket_list_items.poi_id` and `trips.anchor_poi_id` to `text` so the client can persist arbitrary POI ids, re-creates bucket policies, enables `REPLICA IDENTITY FULL` for full realtime payloads, adds `set_trip_anchor` RPC |
 | `20260705160000_seed_real_pois.sql`  | Seeds `public.pois` with real Barcelona POIs pulled from the Mapbox Search Box API. Regenerate with `python3 scripts/seed_pois.py > supabase/migrations/20260705160000_seed_real_pois.sql` |
+| `20260705170000_place_details_columns.sql` | Adds `fsq_id`, `review_count`, `photos jsonb`, and `enriched_at` columns to `public.pois` so the app can render hero images and rating chips |
+| `20260705180000_enrich_pois.sql`     | Enrichment `UPDATE`s pulled from Foursquare Places (rating, review count, up to 5 photos per POI). Ships as a placeholder until you regenerate it locally with `FOURSQUARE_API_KEY=... python3 scripts/enrich_pois.py > supabase/migrations/20260705180000_enrich_pois.sql` |
 
 ### Option A — Dashboard (fastest)
 

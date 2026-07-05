@@ -39,10 +39,44 @@ class PoisRepository {
       lng: (row['lng'] as num).toDouble(),
       address: (row['address'] as String?) ?? '',
       rating: ((row['rating'] as num?) ?? 4.5).toDouble(),
+      ratingCount: (row['review_count'] as int?) ?? 0,
+      photos: _photosFrom(row['photos']),
       avgVisitMinutes: (row['avg_visit_minutes'] as int?) ?? 60,
       opensAt: (row['opens_at'] as int?) ?? 9,
       closesAt: (row['closes_at'] as int?) ?? 22,
       blurb: (row['blurb'] as String?) ?? '',
     );
+  }
+
+  static List<PoiPhoto> _photosFrom(dynamic raw) {
+    if (raw is! List) return const [];
+    final out = <PoiPhoto>[];
+    for (final entry in raw) {
+      if (entry is! Map) continue;
+      final directUrl = entry['url'];
+      if (directUrl is String && directUrl.isNotEmpty) {
+        out.add(PoiPhoto(
+          id: entry['id'] as String?,
+          directUrl: directUrl,
+          source: entry['source'] as String?,
+          attribution: entry['attribution'] as String?,
+          width: (entry['width'] as num?)?.toInt(),
+          height: (entry['height'] as num?)?.toInt(),
+        ));
+        continue;
+      }
+      final prefix = entry['prefix'];
+      final suffix = entry['suffix'];
+      if (prefix is! String || suffix is! String) continue;
+      out.add(PoiPhoto(
+        id: entry['id'] as String?,
+        prefix: prefix,
+        suffix: suffix,
+        source: (entry['source'] as String?) ?? 'foursquare',
+        width: (entry['width'] as num?)?.toInt(),
+        height: (entry['height'] as num?)?.toInt(),
+      ));
+    }
+    return out;
   }
 }

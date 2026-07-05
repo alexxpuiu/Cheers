@@ -81,6 +81,20 @@ The database schema (trips, members, join codes, RLS policies) lives at
 Dashboard's SQL Editor, or `supabase db push` with the CLI. See
 [`supabase/README.md`](supabase/README.md) for details.
 
+Photos, star ratings, and review counts come from the **Foursquare Places
+API** and are baked into `public.pois` by
+`supabase/migrations/20260705180000_enrich_pois.sql`. That file ships as a
+placeholder; regenerate it with a Foursquare key when you want live data:
+
+```bash
+export FOURSQUARE_API_KEY=fsq3...
+python3 scripts/enrich_pois.py \
+    > supabase/migrations/20260705180000_enrich_pois.sql
+```
+
+The Flutter client never talks to Foursquare directly — it just reads the
+cached columns.
+
 Then just run:
 
 ```bash

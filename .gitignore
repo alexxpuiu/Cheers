@@ -48,3 +48,7 @@ android/app/release/
 web/main.dart.js
 web/main.dart.js.map
 web/token.js
+
+# Local dev script caches
+.enrich_poi_images.cache.json
+scripts/__pycache__/

@@ -10,6 +10,7 @@ import '../models/poi.dart';
 import '../providers/poi_providers.dart';
 import '../providers/trip_providers.dart';
 import '../theme/app_colors.dart';
+import '../widgets/attribution.dart';
 import '../widgets/glass.dart';
 import '../widgets/map_panel.dart';
 
@@ -161,6 +162,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 onClose: () => setState(() => _selectedPoiId = null),
               ),
             ),
+
+          // Foursquare attribution — required by their TOS on any screen
+          // showing Foursquare data. Anchored above the bucket sheet peek.
+          const Positioned(
+            left: 20,
+            bottom: 232,
+            child: FoursquareAttribution(),
+          ),
 
           // Catalog loading / error hint (subtle, doesn't block the map).
           if (catalogAsync.isLoading && catalog.isEmpty)
@@ -545,20 +554,7 @@ class _BucketTile extends StatelessWidget {
           children: [
             Row(
               children: [
-                Container(
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    color: poi.category.color.withValues(alpha: 0.25),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: poi.category.color.withValues(alpha: 0.6),
-                    ),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(poi.category.icon,
-                      size: 15, color: poi.category.color),
-                ),
+                _BucketThumb(poi: poi),
                 const Spacer(),
                 if (isAnchor)
                   const Icon(Icons.push_pin_rounded,
@@ -600,6 +596,55 @@ class _BucketTile extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Small square thumbnail on the bucket-list tiles. Uses the first
+/// Foursquare photo when available, otherwise renders the category icon in
+/// its accent color (the original design).
+class _BucketThumb extends StatelessWidget {
+  const _BucketThumb({required this.poi});
+
+  final Poi poi;
+
+  @override
+  Widget build(BuildContext context) {
+    final photo = poi.photos.isNotEmpty ? poi.photos.first : null;
+    final radius = BorderRadius.circular(10);
+    if (photo != null) {
+      return ClipRRect(
+        borderRadius: radius,
+        child: SizedBox(
+          width: 30,
+          height: 30,
+          child: Image.network(
+            photo.url(size: '100x100'),
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _iconFallback(),
+            loadingBuilder: (context, child, progress) =>
+                progress == null ? child : _iconFallback(),
+          ),
+        ),
+      );
+    }
+    return _iconFallback();
+  }
+
+  Widget _iconFallback() {
+    return Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(
+        color: poi.category.color.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: poi.category.color.withValues(alpha: 0.6),
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Icon(poi.category.icon,
+          size: 15, color: poi.category.color),
     );
   }
 }
@@ -652,11 +697,18 @@ class _PoiDetailCard extends ConsumerWidget {
     return MapPanel(
       key: ValueKey('poi-${poi.id}'),
       radius: 24,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
+          _PoiHero(poi: poi, onClose: onClose),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
           Row(
             children: [
               Container(
@@ -691,12 +743,14 @@ class _PoiDetailCard extends ConsumerWidget {
                   ],
                 ),
               ),
-              _MicroAction(icon: Icons.close_rounded, onTap: onClose),
+              _RatingChip(rating: poi.rating, count: poi.ratingCount),
             ],
           ),
-          const SizedBox(height: 10),
-          Text(poi.blurb,
-              style: Theme.of(context).textTheme.bodyMedium),
+          if (poi.blurb.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(poi.blurb,
+                style: Theme.of(context).textTheme.bodyMedium),
+          ],
           const SizedBox(height: 14),
           Row(
             children: [
@@ -719,9 +773,149 @@ class _PoiDetailCard extends ConsumerWidget {
               ],
             ],
           ),
+              ],
+            ),
+          ),
         ],
       ),
     ).animate().fadeIn(duration: 220.ms).slideY(begin: 0.1);
+  }
+}
+
+/// 16:9 hero at the top of the detail card. Uses the first Foursquare
+/// photo when available and falls back to a category-color gradient so the
+/// card looks intentional even for un-enriched POIs.
+class _PoiHero extends StatelessWidget {
+  const _PoiHero({required this.poi, required this.onClose});
+
+  final Poi poi;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final photo = poi.photos.isNotEmpty ? poi.photos.first : null;
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      child: AspectRatio(
+        aspectRatio: 16 / 9,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (photo != null)
+              Image.network(
+                photo.url(size: '600x400'),
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _CategoryGradient(poi: poi),
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+                  return _CategoryGradient(poi: poi);
+                },
+              )
+            else
+              _CategoryGradient(poi: poi),
+            // Bottom scrim so name/chip stay readable if we ever overlay text.
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Colors.black26],
+                ),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: _MicroAction(icon: Icons.close_rounded, onTap: onClose),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryGradient extends StatelessWidget {
+  const _CategoryGradient({required this.poi});
+
+  final Poi poi;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = poi.category.color;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            color.withValues(alpha: 0.55),
+            color.withValues(alpha: 0.18),
+          ],
+        ),
+      ),
+      child: Center(
+        child: Icon(poi.category.icon,
+            size: 42, color: Colors.white.withValues(alpha: 0.55)),
+      ),
+    );
+  }
+}
+
+/// `★ 4.3 · 287` pill next to the POI name. Hides the review count when we
+/// have no data (Foursquare miss / un-enriched row).
+class _RatingChip extends StatelessWidget {
+  const _RatingChip({required this.rating, required this.count});
+
+  final double rating;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.star_rounded, size: 13, color: AppColors.accent),
+          const SizedBox(width: 3),
+          Text(
+            rating.toStringAsFixed(1),
+            style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary),
+          ),
+          if (count > 0) ...[
+            Text('  ·  ',
+                style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textMuted,
+                    fontWeight: FontWeight.w600)),
+            Text(
+              _formatCount(count),
+              style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  static String _formatCount(int n) {
+    if (n >= 1000) {
+      final k = n / 1000;
+      return '${k.toStringAsFixed(k >= 10 ? 0 : 1)}k';
+    }
+    return n.toString();
   }
 }
 
