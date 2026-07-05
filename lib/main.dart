@@ -1,21 +1,44 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
+import 'services/supabase_service.dart';
 
-/// Mapbox **public** access token. Set at run time via:
-///   flutter run --dart-define=MAPBOX_ACCESS_TOKEN=pk.xxxxxxxx
+/// Mapbox **public** access token.
 ///
-/// When empty, the map falls back to a stylised backdrop so the app
-/// still runs offline.
-const String kMapboxAccessToken = String.fromEnvironment(
+/// Loaded at startup from the bundled `.env` file (see repo root). When empty
+/// or missing, the map falls back to a stylised backdrop so the app still
+/// runs offline.
+///
+/// A `--dart-define=MAPBOX_ACCESS_TOKEN=…` value, if provided, takes
+/// precedence over the `.env` entry.
+String kMapboxAccessToken = '';
+
+const String _mapboxTokenFromDefine = String.fromEnvironment(
   'MAPBOX_ACCESS_TOKEN',
   defaultValue: '',
 );
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (e) {
+    if (kDebugMode) {
+      debugPrint('Cheers: no .env file loaded ($e). Falling back to defaults.');
+    }
+  }
+
+  kMapboxAccessToken = _mapboxTokenFromDefine.isNotEmpty
+      ? _mapboxTokenFromDefine
+      : (dotenv.maybeGet('MAPBOX_ACCESS_TOKEN') ?? '');
+
+  await SupabaseService.init();
+
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,

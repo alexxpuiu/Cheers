@@ -57,20 +57,46 @@ Then run `cd ios && pod install`.
 
 ## Running
 
-Pass your **public** Mapbox token via `--dart-define`:
+Put your credentials in a `.env` file at the repo root:
+
+```
+MAPBOX_ACCESS_TOKEN=pk.your_public_token
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_your_publishable_key
+```
+
+A template lives at `.env.example` — copy it and drop your values in. The real
+`.env` is gitignored and bundled into the app as a Flutter asset at build time
+(see `flutter_dotenv` in `pubspec.yaml`).
+
+> **Never** put the `sb_secret_…` / service_role key in `.env` — it bypasses
+> Row Level Security and would ship inside the client bundle. Only the
+> **publishable** (`sb_publishable_…`) key belongs here. If either Supabase
+> value is missing the app still boots, just without the backend.
+
+### Supabase schema
+
+The database schema (trips, members, join codes, RLS policies) lives at
+`supabase/migrations/20260705120000_init.sql`. Apply it once via the Supabase
+Dashboard's SQL Editor, or `supabase db push` with the CLI. See
+[`supabase/README.md`](supabase/README.md) for details.
+
+Then just run:
 
 ```bash
 # iOS
-flutter run --dart-define=MAPBOX_ACCESS_TOKEN=pk.your_public_token
+flutter run
 
 # Android
-flutter run --dart-define=MAPBOX_ACCESS_TOKEN=pk.your_public_token
+flutter run
 
 # Web (Chrome)
-flutter run -d chrome --dart-define=MAPBOX_ACCESS_TOKEN=pk.your_public_token
+flutter run -d chrome
 ```
 
-Skip `--dart-define` to run against the fallback stylised map.
+`--dart-define=MAPBOX_ACCESS_TOKEN=…` is still honoured and, if set, takes
+precedence over the `.env` value. Skip both to run against the fallback
+stylised map.
 
 ## Project layout
 
@@ -83,7 +109,7 @@ lib/
 │   ├── aurora_background.dart   # slow drifting gradient blobs
 │   └── glass.dart               # GlassContainer + GlassButton
 ├── models/                 # Trip, Poi, ItineraryStop
-├── data/mock_pois.dart     # 16 curated Barcelona POIs w/ real coords
+├── services/pois_repository.dart  # loads `public.pois` (Mapbox-seeded)
 ├── providers/              # Riverpod: trips, filters, itinerary generator
 └── screens/
     ├── home_screen.dart

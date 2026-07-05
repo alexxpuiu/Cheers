@@ -4,11 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../data/mock_pois.dart';
 import '../models/trip.dart';
+import '../providers/poi_providers.dart';
 import '../providers/trip_providers.dart';
 import '../theme/app_colors.dart';
 import '../widgets/glass.dart';
+import '../widgets/share_code_sheet.dart';
 
 class CreateTripScreen extends ConsumerStatefulWidget {
   const CreateTripScreen({super.key});
@@ -19,10 +20,12 @@ class CreateTripScreen extends ConsumerStatefulWidget {
 
 class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   final _nameCtrl = TextEditingController(text: 'Long weekend');
-  final _cityCtrl = TextEditingController(text: MockPois.demoCity);
+  final _cityCtrl = TextEditingController(text: BarcelonaCenter.city);
   TripMode _mode = TripMode.solo;
   late DateTime _start;
   late DateTime _end;
+  bool _busy = false;
+  String? _error;
 
   @override
   void initState() {
@@ -66,15 +69,36 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     });
   }
 
-  void _create() {
-    final trip = ref.read(tripStoreProvider).create(
-          name: _nameCtrl.text.trim().isEmpty ? 'New trip' : _nameCtrl.text.trim(),
-          city: _cityCtrl.text.trim().isEmpty ? MockPois.demoCity : _cityCtrl.text.trim(),
-          mode: _mode,
-          start: _start,
-          end: _end,
-        );
-    context.go('/trip/${trip.id}/map');
+  Future<void> _create() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final trip = await ref.read(tripStoreProvider).create(
+            name: _nameCtrl.text.trim().isEmpty
+                ? 'New trip'
+                : _nameCtrl.text.trim(),
+            city: _cityCtrl.text.trim().isEmpty
+                ? BarcelonaCenter.city
+                : _cityCtrl.text.trim(),
+            mode: _mode,
+            start: _start,
+            end: _end,
+          );
+      if (!mounted) return;
+      if (_mode == TripMode.group) {
+        await showShareCodeSheet(context, trip);
+      }
+      if (!mounted) return;
+      context.go('/trip/${trip.id}/map');
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _busy = false;
+      });
+    }
   }
 
   @override
@@ -189,14 +213,25 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                 ],
               ).animate().fadeIn(delay: 380.ms).slideY(begin: 0.1),
               const Spacer(),
+              if (_error != null) ...[
+                Text(
+                  _error!,
+                  style: TextStyle(
+                    color: AppColors.catDining,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               SizedBox(
                 width: double.infinity,
                 child: GlassButton(
-                  label: 'Create trip',
-                  icon: Icons.arrow_forward_rounded,
+                  label: _busy ? 'Creating…' : 'Create trip',
+                  icon: _busy ? null : Icons.arrow_forward_rounded,
                   primary: true,
                   expanded: true,
-                  onTap: _create,
+                  onTap: _busy ? null : _create,
                 ),
               ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.15),
             ],

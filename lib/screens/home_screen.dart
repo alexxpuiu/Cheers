@@ -1,20 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../models/trip.dart';
+import '../providers/auth_providers.dart';
 import '../providers/trip_providers.dart';
 import '../theme/app_colors.dart';
 import '../widgets/glass.dart';
+import '../widgets/share_code_sheet.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final trips = ref.watch(tripStoreProvider).trips;
+    final store = ref.watch(tripStoreProvider);
+    final trips = store.trips;
+    final user = ref.watch(currentUserProvider);
+    final displayName =
+        (user?.userMetadata?['display_name'] as String?)?.trim();
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -45,7 +52,7 @@ class HomeScreen extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    _AvatarPill(),
+                    _AvatarPill(displayName: displayName),
                   ],
                 ),
               ),
@@ -59,25 +66,60 @@ class HomeScreen extends ConsumerWidget {
                   children: [
                     Text('Your trips',
                         style: Theme.of(context).textTheme.headlineSmall),
-                    GlassButton(
-                      label: 'New trip',
-                      icon: Icons.add_rounded,
-                      primary: true,
-                      dense: true,
-                      onTap: () => context.push('/create'),
+                    Row(
+                      children: [
+                        GlassButton(
+                          label: 'Join',
+                          icon: Icons.key_rounded,
+                          dense: true,
+                          onTap: () => context.push('/join'),
+                        ),
+                        const SizedBox(width: 8),
+                        GlassButton(
+                          label: 'New trip',
+                          icon: Icons.add_rounded,
+                          primary: true,
+                          dense: true,
+                          onTap: () => context.push('/create'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
             ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 40),
-              sliver: SliverList.separated(
-                itemCount: trips.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 14),
-                itemBuilder: (context, i) => _TripCard(trip: trips[i], index: i),
+            if (store.isLoading && trips.isEmpty)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.4,
+                      color: AppColors.accent,
+                    ),
+                  ),
+                ),
+              )
+            else if (trips.isEmpty)
+              SliverToBoxAdapter(
+                child: _EmptyState(
+                  onNew: () => context.push('/create'),
+                  onJoin: () => context.push('/join'),
+                  error: store.error,
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 40),
+                sliver: SliverList.separated(
+                  itemCount: trips.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 14),
+                  itemBuilder: (context, i) =>
+                      _TripCard(trip: trips[i], index: i),
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -85,13 +127,44 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-class _AvatarPill extends StatelessWidget {
+class _AvatarPill extends ConsumerWidget {
+  const _AvatarPill({required this.displayName});
+  final String? displayName;
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final label = (displayName == null || displayName!.isEmpty)
+        ? 'You'
+        : displayName!;
+    final initial = label.substring(0, 1).toUpperCase();
+
     return GlassContainer(
       radius: 100,
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
       opacity: 0.15,
+      onTap: () async {
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            backgroundColor: const Color(0xFF1B0E30),
+            title: const Text('Sign out?'),
+            content: Text('You\'re signed in as $label.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Sign out'),
+              ),
+            ],
+          ),
+        );
+        if (confirm == true) {
+          await ref.read(authControllerProvider).signOut();
+        }
+      },
       child: Row(
         children: [
           Container(
@@ -103,22 +176,86 @@ class _AvatarPill extends StatelessWidget {
             ),
             alignment: Alignment.center,
             child: Text(
-              'O',
-              style: TextStyle(
+              initial,
+              style: const TextStyle(
                 fontWeight: FontWeight.w700,
                 color: AppColors.bgDeep,
               ),
             ),
           ),
           const SizedBox(width: 10),
-          const Padding(
-            padding: EdgeInsets.only(right: 10),
-            child: Text('Ola',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+          Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: Text(label,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w600, fontSize: 14)),
           ),
         ],
       ),
     ).animate().fadeIn(delay: 200.ms).slideX(begin: 0.15);
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({
+    required this.onNew,
+    required this.onJoin,
+    required this.error,
+  });
+  final VoidCallback onNew;
+  final VoidCallback onJoin;
+  final String? error;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 40, 24, 40),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.map_outlined,
+              size: 40, color: AppColors.textSecondary),
+          const SizedBox(height: 16),
+          Text(
+            'No trips yet.',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Start a new trip or join one with a friend\'s 6-character code.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          if (error != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              error!,
+              style: TextStyle(
+                color: AppColors.catDining,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              GlassButton(
+                label: 'Join with code',
+                icon: Icons.key_rounded,
+                onTap: onJoin,
+              ),
+              const SizedBox(width: 10),
+              GlassButton(
+                label: 'New trip',
+                icon: Icons.add_rounded,
+                primary: true,
+                onTap: onNew,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -159,10 +296,9 @@ class _TripCard extends StatelessWidget {
       padding: EdgeInsets.zero,
       onTap: () => context.push('/trip/${trip.id}/map'),
       child: SizedBox(
-        height: 168,
+        height: 178,
         child: Stack(
           children: [
-            // Gradient cover strip
             Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
@@ -214,6 +350,10 @@ class _TripCard extends StatelessWidget {
                             ? '${trip.memberCount} together'
                             : 'Solo',
                       ),
+                      const Spacer(),
+                      if (trip.mode == TripMode.group &&
+                          (trip.joinCode?.isNotEmpty ?? false))
+                        _JoinCodeChip(trip: trip),
                     ],
                   ),
                   Column(
@@ -255,6 +395,54 @@ class _TripCard extends StatelessWidget {
         .animate()
         .fadeIn(delay: (120 + index * 90).ms, duration: 480.ms)
         .slideY(begin: 0.08, curve: Curves.easeOutCubic);
+  }
+}
+
+class _JoinCodeChip extends StatelessWidget {
+  const _JoinCodeChip({required this.trip});
+  final Trip trip;
+
+  @override
+  Widget build(BuildContext context) {
+    final code = trip.joinCode ?? '';
+    return GestureDetector(
+      onTap: () => showShareCodeSheet(context, trip),
+      onLongPress: () async {
+        await Clipboard.setData(ClipboardData(text: code));
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Copied $code'),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      },
+      child: GlassContainer(
+        radius: 100,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        opacity: 0.22,
+        borderOpacity: 0.5,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.key_rounded,
+                size: 12, color: AppColors.textPrimary),
+            const SizedBox(width: 6),
+            Text(
+              code,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+                letterSpacing: 1.4,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

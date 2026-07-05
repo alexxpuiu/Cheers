@@ -4,10 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../data/mock_pois.dart';
 import '../models/itinerary.dart';
 import '../models/poi.dart';
 import '../models/trip.dart';
+import '../providers/poi_providers.dart';
 import '../providers/trip_providers.dart';
 import '../theme/app_colors.dart';
 import '../widgets/glass.dart';
@@ -23,19 +23,26 @@ class ItineraryScreen extends ConsumerStatefulWidget {
 class _ItineraryScreenState extends ConsumerState<ItineraryScreen> {
   int _dayIndex = 0;
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final trip = ref.read(tripProvider(widget.tripId));
-      ref.read(itineraryProvider(widget.tripId).notifier).regenerate(trip);
-    });
-  }
+  bool _kickedOff = false;
 
   @override
   Widget build(BuildContext context) {
     final trip = ref.watch(tripProvider(widget.tripId));
     final itinerary = ref.watch(itineraryProvider(widget.tripId));
+    final catalogAsync = ref.watch(poiCatalogProvider);
+    final catalog =
+        catalogAsync.asData?.value ?? const PoiCatalog.empty();
+
+    // Kick off generation once the catalog is loaded — generating before
+    // that lands would produce stubs for every POI id in the bucket.
+    if (!_kickedOff && catalog.isNotEmpty && itinerary == null) {
+      _kickedOff = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref
+            .read(itineraryProvider(widget.tripId).notifier)
+            .regenerate(trip, catalog);
+      });
+    }
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -69,7 +76,7 @@ class _ItineraryScreenState extends ConsumerState<ItineraryScreen> {
                     icon: Icons.refresh_rounded,
                     onTap: () => ref
                         .read(itineraryProvider(widget.tripId).notifier)
-                        .regenerate(trip),
+                        .regenerate(trip, catalog),
                   ),
                 ],
               ),
@@ -91,6 +98,7 @@ class _ItineraryScreenState extends ConsumerState<ItineraryScreen> {
                     key: ValueKey('day-$_dayIndex'),
                     stops: itinerary.forDay(
                         itinerary.dayNumbers.elementAt(_dayIndex)),
+                    catalog: catalog,
                   ),
                 ),
               ],
@@ -226,8 +234,13 @@ class _DayChip extends StatelessWidget {
 }
 
 class _DayList extends StatelessWidget {
-  const _DayList({super.key, required this.stops});
+  const _DayList({
+    super.key,
+    required this.stops,
+    required this.catalog,
+  });
   final List<ItineraryStop> stops;
+  final PoiCatalog catalog;
 
   static final _timeFmt = DateFormat('HH:mm');
 
@@ -239,7 +252,7 @@ class _DayList extends StatelessWidget {
       itemCount: stops.length,
       itemBuilder: (context, i) {
         final stop = stops[i];
-        final poi = MockPois.byId(stop.poiId);
+        final poi = catalog.require(stop.poiId);
         final isFirst = i == 0;
         final isLast = i == stops.length - 1;
         final isAnchorStop = isFirst || isLast;

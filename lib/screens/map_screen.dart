@@ -5,9 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 
-import '../data/mock_pois.dart';
 import '../main.dart' show kMapboxAccessToken;
 import '../models/poi.dart';
+import '../providers/poi_providers.dart';
 import '../providers/trip_providers.dart';
 import '../theme/app_colors.dart';
 import '../widgets/glass.dart';
@@ -28,16 +28,23 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   Widget build(BuildContext context) {
     final trip = ref.watch(tripProvider(widget.tripId));
     final filters = ref.watch(categoryFilterProvider);
-    final pois = MockPois.all
+    final catalogAsync = ref.watch(poiCatalogProvider);
+    final catalog = catalogAsync.asData?.value ?? const PoiCatalog.empty();
+    final pois = catalog.list
         .where((p) => filters.contains(p.category))
         .toList(growable: false);
     final bucketList =
         ref.watch(tripStoreProvider).byId(widget.tripId).bucketList;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.bgDeep,
       body: Stack(
         children: [
+          // Opaque backdrop so the aurora from the app-wide background never
+          // bleeds through the map area (even for tiles that haven't loaded).
+          const Positioned.fill(
+            child: ColoredBox(color: AppColors.bgDeep),
+          ),
           Positioned.fill(
             child: _buildMap(pois: pois, bucketList: bucketList),
           ),
@@ -154,15 +161,33 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           ),
 
           // Selected POI card
-          if (_selectedPoiId != null)
+          if (_selectedPoiId != null && catalog.byId(_selectedPoiId!) != null)
             Positioned(
               left: 16,
               right: 16,
               bottom: 240,
               child: _PoiDetailCard(
-                poi: MockPois.byId(_selectedPoiId!),
+                poi: catalog.require(_selectedPoiId!),
                 tripId: widget.tripId,
                 onClose: () => setState(() => _selectedPoiId = null),
+              ),
+            ),
+
+          // Catalog loading / error hint (subtle, doesn't block the map).
+          if (catalogAsync.isLoading && catalog.isEmpty)
+            const Positioned(
+              top: 130,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.accent,
+                  ),
+                ),
               ),
             ),
         ],
@@ -193,7 +218,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
     return FlutterMap(
       options: MapOptions(
-        initialCenter: const LatLng(MockPois.demoLat, MockPois.demoLng),
+        initialCenter: const LatLng(BarcelonaCenter.lat, BarcelonaCenter.lng),
         initialZoom: 12.6,
         minZoom: 3,
         maxZoom: 18,
@@ -209,13 +234,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           zoomOffset: -1,
           retinaMode: false,
           userAgentPackageName: 'com.cheers.app',
-          // Fade tiles in for a smoother feel.
-          tileBuilder: (context, tileWidget, tile) => AnimatedOpacity(
-            opacity: tile.loadFinishedAt == null ? 0 : 1,
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOut,
-            child: tileWidget,
-          ),
         ),
         MarkerLayer(
           markers: [
@@ -270,14 +288,15 @@ class _MapPin extends StatelessWidget {
             color: Colors.white.withValues(alpha: selected ? 1.0 : 0.85),
             width: selected ? 2.5 : (inBucket ? 2 : 1.4),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: poi.category.color
-                  .withValues(alpha: selected ? 0.65 : 0.4),
-              blurRadius: selected ? 18 : 10,
-              spreadRadius: selected ? 2 : 0,
-            ),
-          ],
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: poi.category.color.withValues(alpha: 0.55),
+                    blurRadius: 12,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : const [],
         ),
         alignment: Alignment.center,
         child: Icon(
@@ -382,7 +401,12 @@ class _BucketSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final trip = ref.watch(tripProvider(tripId));
     final store = ref.read(tripStoreProvider);
-    final items = trip.bucketList.map(MockPois.byId).toList();
+    final catalog =
+        ref.watch(poiCatalogProvider).asData?.value ?? const PoiCatalog.empty();
+    final items = trip.bucketList
+        .map(catalog.byId)
+        .whereType<Poi>()
+        .toList();
     final anchor = trip.anchorPoiId;
 
     return Positioned(
@@ -748,18 +772,30 @@ class _FallbackMapBackdrop extends StatelessWidget {
       builder: (context, constraints) {
         final size = constraints.biggest;
         const pad = 80.0;
-        final lats = MockPois.all.map((p) => p.lat).toList();
-        final lngs = MockPois.all.map((p) => p.lng).toList();
+        // Frame the fallback grid around whatever POIs are actually being
+        // shown (post-filter). Fall back to a sensible Barcelona-wide bbox
+        // when the catalog hasn't loaded yet.
+        final source = pois.isNotEmpty ? pois : const <Poi>[];
+        final lats = source.isEmpty
+            ? const [41.3620, 41.4200]
+            : source.map((p) => p.lat).toList();
+        final lngs = source.isEmpty
+            ? const [2.1300, 2.2050]
+            : source.map((p) => p.lng).toList();
         final minLat = lats.reduce((a, b) => a < b ? a : b);
         final maxLat = lats.reduce((a, b) => a > b ? a : b);
         final minLng = lngs.reduce((a, b) => a < b ? a : b);
         final maxLng = lngs.reduce((a, b) => a > b ? a : b);
+        // Avoid div-by-zero when the (filtered) catalog collapses to a
+        // single POI or the fallback bbox is degenerate.
+        final latSpan = (maxLat - minLat).abs() < 1e-6 ? 0.01 : maxLat - minLat;
+        final lngSpan = (maxLng - minLng).abs() < 1e-6 ? 0.01 : maxLng - minLng;
 
         Offset project(double lat, double lng) {
-          final x = (lng - minLng) / (maxLng - minLng) *
+          final x = (lng - minLng) / lngSpan *
                   (size.width - pad * 2) +
               pad;
-          final y = (1 - (lat - minLat) / (maxLat - minLat)) *
+          final y = (1 - (lat - minLat) / latSpan) *
                   (size.height - pad * 2 - 220) +
               pad + 60;
           return Offset(x, y);
