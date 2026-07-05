@@ -10,6 +10,7 @@ import '../models/poi.dart';
 import '../providers/poi_providers.dart';
 import '../providers/trip_providers.dart';
 import '../theme/app_colors.dart';
+import '../theme/layout.dart';
 import '../widgets/attribution.dart';
 import '../widgets/glass.dart';
 import '../widgets/map_panel.dart';
@@ -150,12 +151,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             onGenerate: () => context.push('/trip/${widget.tripId}/itinerary'),
           ),
 
-          // Selected POI card
+          // Selected POI card — full width on phone, capped on laptop/web so
+          // the 16:9 hero doesn't stretch across the whole viewport.
           if (_selectedPoiId != null && catalog.byId(_selectedPoiId!) != null)
             Positioned(
               left: 16,
-              right: 16,
+              right: AppLayout.isPhoneWidth(context) ? 16 : null,
               bottom: 240,
+              width: AppLayout.isPhoneWidth(context)
+                  ? null
+                  : AppLayout.poiDetailCardMaxWidth,
               child: _PoiDetailCard(
                 poi: catalog.require(_selectedPoiId!),
                 tripId: widget.tripId,
