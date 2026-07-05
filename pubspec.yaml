@@ -1,0 +1,42 @@
+name: cheers
+description: "Cheers — a collaborative trip planner. Turn a loose list of places into an optimized day-by-day itinerary."
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+  flutter: ">=3.27.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # State
+  flutter_riverpod: ^2.5.1
+
+  # Map
+  mapbox_maps_flutter: ^2.4.1
+
+  # UI / motion
+  google_fonts: ^6.2.1
+  flutter_animate: ^4.5.0
+  flutter_svg: ^2.0.10+1
+
+  # Routing
+  go_router: ^14.2.7
+
+  # Utilities
+  intl: ^0.19.0
+  uuid: ^4.4.2
+  collection: ^1.18.0
+
+dev_dependencies:
+  flutter_lints: ^4.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/

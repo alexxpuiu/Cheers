@@ -1,0 +1,12 @@
+{
+  "name": "Cheers",
+  "short_name": "Cheers",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0B0B1E",
+  "theme_color": "#0B0B1E",
+  "description": "Collaborative trip planner.",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false,
+  "icons": []
+}

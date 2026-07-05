@@ -1,0 +1,49 @@
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+.env
+*.iml
+
+# Secrets — must never live in the project
+.netrc
+.env
+.env.*
+secrets.json
+dart_defines.json
+gradle.properties
+android/key.properties
+android/app/key.properties
+**/local.properties
+**/*keystore*.jks
+**/*.keystore
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/App.framework
+ios/Runner/GeneratedPluginRegistrant.*
+
+# Android
+android/.gradle/
+android/local.properties
+android/**/gradle-wrapper.jar
+android/app/debug/
+android/app/profile/
+android/app/release/
+
+# Web
+web/main.dart.js
+web/main.dart.js.map
