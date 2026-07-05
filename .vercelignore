@@ -1,0 +1,26 @@
+# Native platforms — not needed for Flutter web builds
+android/
+ios/
+linux/
+macos/
+windows/
+
+# Build artifacts & caches
+build/
+.dart_tool/
+.android/
+.pub/
+.pub-cache/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# IDE & local junk
+.idea/
+.vscode/
+*.iml
+*.hprof
+*.log
+local.properties
+
+# Vercel metadata (recreated on deploy)
+.vercel

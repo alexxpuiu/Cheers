@@ -37,6 +37,7 @@ ios/Flutter/App.framework
 ios/Runner/GeneratedPluginRegistrant.*
 
 # Android
+*.hprof
 android/.gradle/
 android/local.properties
 android/**/gradle-wrapper.jar
@@ -52,3 +53,6 @@ web/token.js
 # Local dev script caches
 .enrich_poi_images.cache.json
 scripts/__pycache__/
+
+# Vercel
+.vercel
