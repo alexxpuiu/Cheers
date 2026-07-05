@@ -37,6 +37,7 @@ ios/Flutter/App.framework
 ios/Runner/GeneratedPluginRegistrant.*
 
 # Android
+*.hprof
 android/.gradle/
 android/local.properties
 android/**/gradle-wrapper.jar
@@ -48,3 +49,4 @@ android/app/release/
 web/main.dart.js
 web/main.dart.js.map
 web/token.js
+.vercel
