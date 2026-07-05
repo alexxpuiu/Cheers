@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mb;
+import 'package:latlong2/latlong.dart' hide Path;
 
 import '../data/mock_pois.dart';
 import '../main.dart' show kMapboxAccessToken;
@@ -20,7 +21,6 @@ class MapScreen extends ConsumerStatefulWidget {
 }
 
 class _MapScreenState extends ConsumerState<MapScreen> {
-  mb.PointAnnotationManager? _annotations;
   String? _selectedPoiId;
   bool _showFilters = true;
 
@@ -31,20 +31,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final pois = MockPois.all
         .where((p) => filters.contains(p.category))
         .toList(growable: false);
-
-    // Re-render markers when the filter or bucket list changes.
-    ref.listen(categoryFilterProvider, (_, __) => _refreshMarkers());
-    ref.listen<int>(
-      tripStoreProvider.select((s) => s.byId(widget.tripId).bucketList.length),
-      (_, __) => _refreshMarkers(),
-    );
+    final bucketList =
+        ref.watch(tripStoreProvider).byId(widget.tripId).bucketList;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          // The map (or fallback illustration)
-          Positioned.fill(child: _buildMap()),
+          Positioned.fill(
+            child: _buildMap(pois: pois, bucketList: bucketList),
+          ),
 
           // Subtle vignette so the top/bottom UI reads clearly on any map.
           Positioned.fill(
@@ -150,19 +146,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ),
             ),
 
-          // Fallback POI overlay (used when Mapbox isn't configured)
-          if (kMapboxAccessToken.isEmpty)
-            Positioned.fill(
-              child: IgnorePointer(
-                child: _FallbackPoiOverlay(
-                  pois: pois,
-                  selectedId: _selectedPoiId,
-                  bucketList:
-                      ref.watch(tripStoreProvider).byId(widget.tripId).bucketList,
-                ),
-              ),
-            ),
-
           // Bucket-list bottom sheet
           _BucketSheet(
             tripId: widget.tripId,
@@ -187,55 +170,123 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
-  Widget _buildMap() {
+  Widget _buildMap({
+    required List<Poi> pois,
+    required List<String> bucketList,
+  }) {
     if (kMapboxAccessToken.isEmpty) {
-      return const _FallbackMapBackdrop();
+      return _FallbackMapBackdrop(
+        pois: pois,
+        selectedId: _selectedPoiId,
+        bucketList: bucketList,
+        onTapPin: (poi) => setState(() => _selectedPoiId = poi.id),
+      );
     }
-    return mb.MapWidget(
-      key: const ValueKey('mapbox'),
-      cameraOptions: mb.CameraOptions(
-        center: mb.Point(
-          coordinates:
-              mb.Position(MockPois.demoLng, MockPois.demoLat),
+
+    final bucket = bucketList.toSet();
+    // Mapbox raster tiles — style: dark-v11 @2x for retina.
+    // We use the Mapbox Static Tiles API which works over standard HTTP
+    // and only requires the public `pk.…` token.
+    final tileUrl =
+        'https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/512/{z}/{x}/{y}@2x'
+        '?access_token=$kMapboxAccessToken';
+
+    return FlutterMap(
+      options: MapOptions(
+        initialCenter: const LatLng(MockPois.demoLat, MockPois.demoLng),
+        initialZoom: 12.6,
+        minZoom: 3,
+        maxZoom: 18,
+        interactionOptions: const InteractionOptions(
+          flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
         ),
-        zoom: 12.5,
-        bearing: 0,
-        pitch: 30,
+        onTap: (_, __) => setState(() => _selectedPoiId = null),
       ),
-      styleUri: mb.MapboxStyles.DARK,
-      onMapCreated: (map) async {
-        await map.logo.updateSettings(mb.LogoSettings(enabled: false));
-        await map.attribution
-            .updateSettings(mb.AttributionSettings(enabled: false));
-        await map.scaleBar
-            .updateSettings(mb.ScaleBarSettings(enabled: false));
-        await map.compass.updateSettings(mb.CompassSettings(enabled: false));
-        _annotations = await map.annotations.createPointAnnotationManager();
-        await _refreshMarkers();
-      },
-      onTapListener: (_) => setState(() => _selectedPoiId = null),
+      children: [
+        TileLayer(
+          urlTemplate: tileUrl,
+          tileSize: 512,
+          zoomOffset: -1,
+          retinaMode: false,
+          userAgentPackageName: 'com.cheers.app',
+          // Fade tiles in for a smoother feel.
+          tileBuilder: (context, tileWidget, tile) => AnimatedOpacity(
+            opacity: tile.loadFinishedAt == null ? 0 : 1,
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+            child: tileWidget,
+          ),
+        ),
+        MarkerLayer(
+          markers: [
+            for (final p in pois)
+              Marker(
+                point: LatLng(p.lat, p.lng),
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                child: _MapPin(
+                  poi: p,
+                  selected: p.id == _selectedPoiId,
+                  inBucket: bucket.contains(p.id),
+                  onTap: () => setState(() => _selectedPoiId = p.id),
+                ),
+              ),
+          ],
+        ),
+      ],
     );
   }
+}
 
-  Future<void> _refreshMarkers() async {
-    if (_annotations == null) return;
-    await _annotations!.deleteAll();
-    final filters = ref.read(categoryFilterProvider);
-    final bucket =
-        ref.read(tripStoreProvider).byId(widget.tripId).bucketList.toSet();
-    final pois = MockPois.all.where((p) => filters.contains(p.category));
-    for (final p in pois) {
-      final inBucket = bucket.contains(p.id);
-      final options = mb.PointAnnotationOptions(
-        geometry: mb.Point(coordinates: mb.Position(p.lng, p.lat)),
-        textField: inBucket ? '●' : '',
-        textColor: p.category.color.toARGB32(),
-        textSize: 22,
-        iconSize: inBucket ? 1.2 : 0.9,
-        textOffset: [0, 0],
-      );
-      await _annotations!.create(options);
-    }
+class _MapPin extends StatelessWidget {
+  const _MapPin({
+    required this.poi,
+    required this.selected,
+    required this.inBucket,
+    required this.onTap,
+  });
+
+  final Poi poi;
+  final bool selected;
+  final bool inBucket;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = selected ? 38.0 : (inBucket ? 34.0 : 28.0);
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: poi.category.color.withValues(alpha: inBucket ? 0.95 : 0.85),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: selected ? 1.0 : 0.85),
+            width: selected ? 2.5 : (inBucket ? 2 : 1.4),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: poi.category.color
+                  .withValues(alpha: selected ? 0.65 : 0.4),
+              blurRadius: selected ? 18 : 10,
+              spreadRadius: selected ? 2 : 0,
+            ),
+          ],
+        ),
+        alignment: Alignment.center,
+        child: Icon(
+          poi.category.icon,
+          size: selected ? 18 : 14,
+          color: Colors.white,
+        ),
+      ),
+    );
   }
 }
 
@@ -674,19 +725,65 @@ class _PoiDetailCard extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Fallback map (shown when Mapbox token is missing) — a stylised backdrop
-// with the POIs positioned by lat/lng so the demo remains beautiful even
-// without the token.
+// Fallback map (shown when Mapbox token is missing) — a stylised grid-and-
+// river backdrop with pins positioned by lat/lng so the app still runs.
 // ---------------------------------------------------------------------------
 
 class _FallbackMapBackdrop extends StatelessWidget {
-  const _FallbackMapBackdrop();
+  const _FallbackMapBackdrop({
+    required this.pois,
+    required this.selectedId,
+    required this.bucketList,
+    required this.onTapPin,
+  });
+
+  final List<Poi> pois;
+  final String? selectedId;
+  final List<String> bucketList;
+  final ValueChanged<Poi> onTapPin;
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _GridPainter(),
-      child: const SizedBox.expand(),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = constraints.biggest;
+        const pad = 80.0;
+        final lats = MockPois.all.map((p) => p.lat).toList();
+        final lngs = MockPois.all.map((p) => p.lng).toList();
+        final minLat = lats.reduce((a, b) => a < b ? a : b);
+        final maxLat = lats.reduce((a, b) => a > b ? a : b);
+        final minLng = lngs.reduce((a, b) => a < b ? a : b);
+        final maxLng = lngs.reduce((a, b) => a > b ? a : b);
+
+        Offset project(double lat, double lng) {
+          final x = (lng - minLng) / (maxLng - minLng) *
+                  (size.width - pad * 2) +
+              pad;
+          final y = (1 - (lat - minLat) / (maxLat - minLat)) *
+                  (size.height - pad * 2 - 220) +
+              pad + 60;
+          return Offset(x, y);
+        }
+
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: CustomPaint(painter: _GridPainter()),
+            ),
+            for (final p in pois)
+              Positioned(
+                left: project(p.lat, p.lng).dx - 22,
+                top: project(p.lat, p.lng).dy - 22,
+                child: _MapPin(
+                  poi: p,
+                  selected: p.id == selectedId,
+                  inBucket: bucketList.contains(p.id),
+                  onTap: () => onTapPin(p),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -713,7 +810,6 @@ class _GridPainter extends CustomPainter {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
     }
 
-    // A meandering "river"
     final river = Paint()
       ..color = const Color(0xFF4FD1C5).withValues(alpha: 0.15)
       ..style = PaintingStyle.stroke
@@ -734,87 +830,4 @@ class _GridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _FallbackPoiOverlay extends StatelessWidget {
-  const _FallbackPoiOverlay({
-    required this.pois,
-    required this.selectedId,
-    required this.bucketList,
-  });
-  final List<Poi> pois;
-  final String? selectedId;
-  final List<String> bucketList;
-
-  @override
-  Widget build(BuildContext context) {
-    // Fit lat/lng to screen using a bounding box over all POIs.
-    final size = MediaQuery.of(context).size;
-    const pad = 80.0;
-    final lats = MockPois.all.map((p) => p.lat).toList();
-    final lngs = MockPois.all.map((p) => p.lng).toList();
-    final minLat = lats.reduce((a, b) => a < b ? a : b);
-    final maxLat = lats.reduce((a, b) => a > b ? a : b);
-    final minLng = lngs.reduce((a, b) => a < b ? a : b);
-    final maxLng = lngs.reduce((a, b) => a > b ? a : b);
-
-    Offset project(double lat, double lng) {
-      final x = (lng - minLng) / (maxLng - minLng) * (size.width - pad * 2) + pad;
-      final y = (1 - (lat - minLat) / (maxLat - minLat)) *
-              (size.height - pad * 2 - 220) +
-          pad + 60;
-      return Offset(x, y);
-    }
-
-    return Stack(
-      children: [
-        for (final p in pois)
-          Positioned(
-            left: project(p.lat, p.lng).dx - 16,
-            top: project(p.lat, p.lng).dy - 16,
-            child: _FallbackPin(
-              poi: p,
-              selected: p.id == selectedId,
-              inBucket: bucketList.contains(p.id),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _FallbackPin extends StatelessWidget {
-  const _FallbackPin({
-    required this.poi,
-    required this.selected,
-    required this.inBucket,
-  });
-  final Poi poi;
-  final bool selected;
-  final bool inBucket;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: poi.category.color.withValues(alpha: inBucket ? 0.95 : 0.75),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.9),
-          width: inBucket ? 2 : 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: poi.category.color.withValues(alpha: 0.5),
-            blurRadius: 14,
-            spreadRadius: 1,
-          ),
-        ],
-      ),
-      alignment: Alignment.center,
-      child: Icon(poi.category.icon, size: 14, color: Colors.white),
-    );
-  }
 }

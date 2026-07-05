@@ -15,8 +15,9 @@ dependencies:
   # State
   flutter_riverpod: ^2.5.1
 
-  # Map
-  mapbox_maps_flutter: ^2.4.1
+  # Map (Mapbox tiles served via flutter_map — works on iOS/Android/Web)
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
 
   # UI / motion
   google_fonts: ^6.2.1
